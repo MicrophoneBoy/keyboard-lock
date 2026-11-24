@@ -336,8 +336,17 @@ public class LockForm : Form {
     bool HoldMode { get { return Hooks.BlockClicks; } }
     bool MinusEnabled { get { return RemainingMs() > (MinSeconds + 1) * 1000.0; } }
 
+    static bool IsStop(string id) { return id == "unlock" || id == "clock"; }
+
+    bool InClock(Point p) {
+        RectangleF r = rRing;
+        float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2, rad = r.Width / 2;
+        return (p.X - cx) * (p.X - cx) + (p.Y - cy) * (p.Y - cy) <= rad * rad;
+    }
+
     string HitTest(Point p) {
         if (rUnlock.Contains(p)) return "unlock";
+        if (InClock(p)) return "clock";   // the clock is a stop button too
         if (rMinus.Contains(p)) return MinusEnabled ? "minus" : null;
         if (rPlus.Contains(p)) return "plus";
         if (rToggle.Contains(p)) return Hooks.MouseHookOk ? "toggle" : null;
@@ -356,7 +365,7 @@ public class LockForm : Form {
             if (cut > 0) { endTime = endTime.AddMilliseconds(-cut); totalMs = Math.Max(totalMs - cut, rem - cut); }
         } else if (id == "toggle") {
             Hooks.BlockClicks = !Hooks.BlockClicks;
-        } else if (id == "unlock") {
+        } else if (IsStop(id)) {
             Unlock(false);
         }
         Invalidate();
@@ -365,14 +374,14 @@ public class LockForm : Form {
     protected override void OnMouseMove(MouseEventArgs e) {
         base.OnMouseMove(e);
         string h = HitTest(e.Location);
-        if (holding && h != "unlock") holding = false;
+        if (holding && h != pressed) holding = false;
         if (h != hot) { hot = h; Cursor = h != null ? Cursors.Hand : Cursors.Default; Invalidate(); }
     }
 
     protected override void OnMouseLeave(EventArgs e) {
         base.OnMouseLeave(e);
         hot = null;
-        if (pressed != "unlock") holding = false;   // moving off the button (OnMouseMove) still cancels a hold
+        if (!IsStop(pressed)) holding = false;   // moving off the button (OnMouseMove) still cancels a hold
         Invalidate();
     }
 
@@ -386,7 +395,7 @@ public class LockForm : Form {
             return;
         }
         pressed = h;
-        if (h == "unlock" && HoldMode) { holding = true; holdStart = DateTime.UtcNow; }
+        if (IsStop(h) && HoldMode) { holding = true; holdStart = DateTime.UtcNow; }
         Invalidate();
     }
 
@@ -399,7 +408,7 @@ public class LockForm : Form {
         bool wasHolding = holding;
         holding = false;
         if (p != null && p == h) {
-            if (p != "unlock" || (!HoldMode && !wasHolding)) Press(p);
+            if (!IsStop(p) || (!HoldMode && !wasHolding)) Press(p);
         }
         Invalidate();
     }
@@ -443,6 +452,14 @@ public class LockForm : Form {
         float stroke = S(10);
         RectangleF ring = rRing;
         ring.Inflate(-stroke / 2, -stroke / 2);
+        if (hot == "clock" || pressed == "clock") {   // show the clock is clickable
+            RectangleF disc = RectangleF.Inflate(ring, -stroke, -stroke);
+            using (SolidBrush b = new SolidBrush(pressed == "clock" ? cSurfaceHover : cSurface)) g.FillEllipse(b, disc);
+            if (holding && pressed == "clock") {
+                float hp = (float)Math.Min(1, (DateTime.UtcNow - holdStart).TotalMilliseconds / HoldMs);
+                using (SolidBrush b = new SolidBrush(Color.FromArgb((int)(90 * hp), cAccent))) g.FillEllipse(b, disc);
+            }
+        }
         using (Pen track = new Pen(cTrack, stroke)) g.DrawEllipse(track, ring);
         if (frac > 0.002f) {
             using (Pen arc = new Pen(cAccent, stroke)) {
@@ -453,7 +470,9 @@ public class LockForm : Form {
         int secs = (int)Math.Ceiling(rem / 1000.0);
         Txt(g, (secs / 60) + ":" + (secs % 60).ToString("00"), fBig, R(96, 150, 168, 58), cText, C);
         int k = Hooks.KeysBlocked;
-        Txt(g, k == 1 ? "1 key blocked" : k + " keys blocked", fSmall, R(96, 206, 168, 18), cSub, C);
+        string under = k == 1 ? "1 key blocked" : k + " keys blocked";
+        if (hot == "clock" || pressed == "clock") under = HoldMode ? "Hold to stop" : "Click to stop";
+        Txt(g, under, fSmall, R(96, 206, 168, 18), hot == "clock" ? cText : cSub, C);
 
         // -30s / +30s
         DrawPill(g, rMinus, "\u2212 30 s", "minus", MinusEnabled);
@@ -471,7 +490,7 @@ public class LockForm : Form {
         RectangleF u = rUnlock;
         Color uc = pressed == "unlock" ? cAccentPressed : (hot == "unlock" ? cAccentHover : cAccent);
         Fill(g, u, S(10), uc);
-        if (holding) {
+        if (holding && pressed == "unlock") {
             float p = (float)Math.Min(1, (DateTime.UtcNow - holdStart).TotalMilliseconds / HoldMs);
             using (GraphicsPath path = Rounded(u, S(10))) using (SolidBrush b = new SolidBrush(Color.FromArgb(70, cOnAccent))) {
                 g.SetClip(path);

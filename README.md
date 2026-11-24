@@ -22,7 +22,7 @@ Lock your laptop keyboard for a couple of minutes so you can wipe it clean witho
 1. Download [`KeyboardLock.bat`](KeyboardLock.bat) (Code > Download ZIP, or open the file and click the download button).
 2. Double-click it. The window appears and the keyboard is locked.
 3. Clean the keyboard.
-4. Click **Unlock now**, or just wait for the timer.
+4. Click **Unlock now** or the clock, or just wait for the timer.
 
 Want a different time just once? Run it from a terminal with the number of seconds, for example `KeyboardLock.bat 60`.
 
@@ -33,6 +33,7 @@ Any one of these works:
 | Way | What to do |
 | --- | --- |
 | Button | Click **Unlock now**. With touchpad blocking on, press and hold it for 1 second (so a wipe can't hit it by accident). |
+| Clock | Click the countdown clock. It works as a stop button too (hold it for 1 second when touchpad blocking is on). |
 | Timer | Wait. It unlocks on its own when the countdown reaches 0:00. |
 | Close the window | Close it from the taskbar (right-click > Close window). |
 | Emergency | Press **Ctrl+Alt+Del**. Windows never lets programs block this, and Keyboard Lock unlocks as soon as that screen appears. Press Esc to go back. |
